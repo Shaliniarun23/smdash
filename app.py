@@ -42,8 +42,65 @@ def label_encode(df, cols):
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Data Visualization", "Classification", "Clustering", "Association Rules", "Regression"])
 
 # Placeholder for other tabs (logic will be added in external files in the actual zip)
-tab1.markdown("To be continued in final package...")
-tab2.markdown("To be continued in final package...")
-tab3.markdown("To be continued in final package...")
-tab4.markdown("To be continued in final package...")
-tab5.markdown("To be continued in final package...")
+with tab1:
+    st.subheader("🔍 Exploratory Data Insights")
+
+    # 1. Distribution of Spend per Transaction
+    fig, ax = plt.subplots()
+    sns.histplot(df['Spend Per Transaction'], kde=True, bins=30, ax=ax)
+    ax.set_title("Distribution of Spend Per Transaction")
+    st.pyplot(fig)
+
+    # 2. Monthly Spend vs Occupation
+    fig, ax = plt.subplots()
+    sns.boxplot(data=df, x="Occupation", y="Expected Monthly Spend", ax=ax)
+    ax.set_title("Monthly Spend by Occupation")
+    st.pyplot(fig)
+
+    # 3. Age Group vs Willingness
+    fig, ax = plt.subplots()
+    sns.countplot(data=df, x="Age Group", hue="Willing to Try New Platform", ax=ax)
+    ax.set_title("Age Group vs Willingness to Try Platform")
+    st.pyplot(fig)
+
+    # 4. Spend vs Subscription to Loyalty Program
+    fig, ax = plt.subplots()
+    sns.violinplot(data=df, x="Subscribed to Loyalty Program", y="Spend Per Transaction", ax=ax)
+    ax.set_title("Spending by Loyalty Subscription")
+    st.pyplot(fig)
+
+    # 5. Top Categories
+    st.markdown("### 🛍️ Most Common Preferred Categories")
+    all_cats = ";".join(df["Preferred Categories"].dropna()).split(";")
+    top_cats = pd.Series(all_cats).value_counts().head(10)
+    st.bar_chart(top_cats)
+
+    # 6. Preferred Payment Methods
+    st.markdown("### 💳 Preferred Payment Methods")
+    all_pm = ";".join(df["Payment Methods"].dropna()).split(";")
+    top_pm = pd.Series(all_pm).value_counts()
+    st.bar_chart(top_pm)
+
+    # 7. Loyalty Engagement Preferences
+    st.markdown("### 🎯 Loyalty Engagement Preferences")
+    all_loy = ";".join(df["Loyalty Engagement Factors"].dropna()).split(";")
+    top_loy = pd.Series(all_loy).value_counts()
+    st.bar_chart(top_loy)
+
+    # 8. Spend vs Time of Day
+    fig, ax = plt.subplots()
+    sns.boxplot(data=df, x="Preferred Shopping Time", y="Spend Per Transaction", ax=ax)
+    ax.set_title("Spend vs Time of Day")
+    st.pyplot(fig)
+
+    # 9. Delivery Issues by City
+    fig, ax = plt.subplots()
+    sns.countplot(data=df, x="City", hue="Experienced Delivery Issues", ax=ax)
+    ax.set_title("Delivery Issues by City")
+    st.pyplot(fig)
+
+    # 10. Referral Likelihood vs Spend
+    fig, ax = plt.subplots()
+    sns.boxplot(data=df, x="Referral Likelihood", y="Expected Monthly Spend", ax=ax)
+    ax.set_title("Spend vs Referral Likelihood")
+    st.pyplot(fig)
