@@ -195,20 +195,6 @@ ax.set_title("Multiclass ROC Curve")
 ax.legend(loc="lower right")
 st.pyplot(fig)
 
-
-    # Predict on uploaded new data
-    st.markdown("### Predict New Uploaded Data")
-    new_file = st.file_uploader("Upload New Data (no target column)", type=["csv"])
-    if new_file:
-        new_df = pd.read_csv(new_file)
-        new_df_encoded = label_encode(new_df, encode_cols)
-        pred_model = RandomForestClassifier()
-        pred_model.fit(X, y)
-        new_df['Predicted Willingness'] = pred_model.predict(new_df_encoded[X.columns])
-        st.dataframe(new_df)
-        csv = new_df.to_csv(index=False).encode('utf-8')
-        st.download_button("Download Predictions", csv, file_name="predicted_output.csv")
-
 with tab3:
     st.subheader("🧩 Customer Segmentation – KMeans Clustering")
 
