@@ -104,3 +104,193 @@ with tab1:
     sns.boxplot(data=df, x="Referral Likelihood", y="Expected Monthly Spend", ax=ax)
     ax.set_title("Spend vs Referral Likelihood")
     st.pyplot(fig)
+
+with tab2:
+    st.subheader("🧪 Classification Models – Predict Willingness")
+
+    model_dict = {
+        "K-Nearest Neighbors": KNeighborsClassifier(),
+        "Decision Tree": DecisionTreeClassifier(),
+        "Random Forest": RandomForestClassifier(),
+        "Gradient Boosting": GradientBoostingClassifier()
+    }
+
+    # Encode categorical features
+    encode_cols = ['Age Group', 'Gender', 'City', 'Occupation', 'Income Range',
+                   'Shopping Frequency', 'Purchase Factor', 'Subscribed to Loyalty Program',
+                   'Referral Likelihood', 'Preferred Shopping Time', 'Preferred Shopping Day',
+                   'Experienced Delivery Issues', 'Willing to Pay for Fast Delivery']
+    
+    df_cls = label_encode(df, encode_cols + ['Willing to Try New Platform'])
+
+    X = df_cls.drop(columns=['Willing to Try New Platform', 'Preferred Categories',
+                              'Payment Methods', 'Loyalty Engagement Factors',
+                              'Offer Preferences', 'Delivery Issue Types'])
+    y = df_cls['Willing to Try New Platform']
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+    results = []
+    probs = {}
+    for name, model in model_dict.items():
+        model.fit(X_train, X_train.columns.to_frame())
+        y_pred = model.predict(X_test)
+        y_prob = model.predict_proba(X_test)[:, 1] if hasattr(model, 'predict_proba') else [0]*len(y_test)
+
+        results.append({
+            "Model": name,
+            "Accuracy": accuracy_score(y_test, y_pred),
+            "Precision": precision_score(y_test, y_pred, average="weighted"),
+            "Recall": recall_score(y_test, y_pred, average="weighted"),
+            "F1 Score": f1_score(y_test, y_pred, average="weighted")
+        })
+        probs[name] = y_prob
+
+    st.dataframe(pd.DataFrame(results).round(3))
+
+    # Confusion matrix
+    model_selected = st.selectbox("Choose model to display Confusion Matrix", list(model_dict.keys()))
+    clf_model = model_dict[model_selected]
+    clf_model.fit(X_train, y_train)
+    y_pred = clf_model.predict(X_test)
+    cm = confusion_matrix(y_test, y_pred)
+
+    fig, ax = plt.subplots()
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+    ax.set_title(f"{model_selected} - Confusion Matrix")
+    st.pyplot(fig)
+
+    # ROC Curve
+    st.markdown("### ROC Curve")
+    fig, ax = plt.subplots()
+    for name, model in model_dict.items():
+        model.fit(X_train, y_train)
+        if hasattr(model, 'predict_proba'):
+            y_score = model.predict_proba(X_test)[:, 1]
+            fpr, tpr, _ = roc_curve(y_test, y_score)
+            ax.plot(fpr, tpr, label=f"{name}")
+    ax.plot([0, 1], [0, 1], 'k--')
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("True Positive Rate")
+    ax.set_title("ROC Curve")
+    ax.legend()
+    st.pyplot(fig)
+
+    # Predict on uploaded new data
+    st.markdown("### Predict New Uploaded Data")
+    new_file = st.file_uploader("Upload New Data (no target column)", type=["csv"])
+    if new_file:
+        new_df = pd.read_csv(new_file)
+        new_df_encoded = label_encode(new_df, encode_cols)
+        pred_model = RandomForestClassifier()
+        pred_model.fit(X, y)
+        new_df['Predicted Willingness'] = pred_model.predict(new_df_encoded[X.columns])
+        st.dataframe(new_df)
+        csv = new_df.to_csv(index=False).encode('utf-8')
+        st.download_button("Download Predictions", csv, file_name="predicted_output.csv")
+
+with tab3:
+    st.subheader("🧩 Customer Segmentation – KMeans Clustering")
+
+    # Encode and scale relevant features
+    cluster_cols = ['Age Group', 'Income Range', 'Shopping Frequency',
+                    'Spend Per Transaction', 'Subscribed to Loyalty Program']
+    df_cluster = label_encode(df, cluster_cols)
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(df_cluster[cluster_cols])
+
+    # Elbow chart
+    st.markdown("### 📈 Elbow Chart")
+    sse = []
+    K_range = range(1, 11)
+    for k in K_range:
+        km = KMeans(n_clusters=k, random_state=42)
+        km.fit(X_scaled)
+        sse.append(km.inertia_)
+
+    fig, ax = plt.subplots()
+    ax.plot(K_range, sse, marker='o')
+    ax.set_xlabel("Number of Clusters")
+    ax.set_ylabel("SSE")
+    ax.set_title("Elbow Chart")
+    st.pyplot(fig)
+
+    # Slider to choose number of clusters
+    num_clusters = st.slider("Select number of clusters", min_value=2, max_value=10, value=4)
+    kmeans = KMeans(n_clusters=num_clusters, random_state=42)
+    df_cluster['Cluster'] = kmeans.fit_predict(X_scaled)
+
+    # Persona table
+    st.markdown("### 🧠 Cluster Persona Summary")
+    persona = df_cluster.groupby('Cluster')[cluster_cols].mean().round(2)
+    st.dataframe(persona)
+
+    # Download full clustered data
+    df_out = df.copy()
+    df_out['Cluster'] = df_cluster['Cluster']
+    csv = df_out.to_csv(index=False).encode('utf-8')
+    st.download_button("📥 Download Clustered Data", csv, file_name="clustered_output.csv")
+
+with tab4:
+    st.subheader("🔗 Association Rule Mining – Apriori")
+
+    cols_for_rules = st.multiselect("Select columns for Apriori", 
+        ['Preferred Categories', 'Payment Methods', 'Loyalty Engagement Factors', 'Offer Preferences', 'Delivery Issue Types'],
+        default=['Preferred Categories', 'Payment Methods'])
+
+    min_support = st.slider("Minimum Support", 0.01, 1.0, 0.05, 0.01)
+    min_confidence = st.slider("Minimum Confidence", 0.1, 1.0, 0.4, 0.05)
+
+    # Preprocess transactions
+    transactions = df[cols_for_rules].fillna('').apply(lambda row: ';'.join(row.values.astype(str)), axis=1)
+    transaction_lists = [t.split(';') for t in transactions]
+
+    te = TransactionEncoder()
+    te_ary = te.fit(transaction_lists).transform(transaction_lists)
+    df_trans = pd.DataFrame(te_ary, columns=te.columns_)
+
+    # Run Apriori
+    frequent = apriori(df_trans, min_support=min_support, use_colnames=True)
+    rules = association_rules(frequent, metric="confidence", min_threshold=min_confidence)
+
+    # Show top 10
+    top_rules = rules.sort_values(by="confidence", ascending=False).head(10)
+    st.dataframe(top_rules[['antecedents', 'consequents', 'support', 'confidence', 'lift']])
+
+with tab5:
+    st.subheader("📉 Predicting Monthly Spend – Regression Models")
+
+    model_dict = {
+        "Linear Regression": LinearRegression(),
+        "Ridge Regression": Ridge(alpha=1.0),
+        "Lasso Regression": Lasso(alpha=0.01),
+        "Decision Tree Regressor": DecisionTreeRegressor()
+    }
+
+    reg_cols = ['Age Group', 'Gender', 'Occupation', 'Income Range',
+                'Shopping Frequency', 'Purchase Factor', 'Subscribed to Loyalty Program',
+                'Referral Likelihood', 'Preferred Shopping Time']
+
+    df_reg = label_encode(df, reg_cols)
+    X = df_reg[reg_cols + ['Spend Per Transaction']]
+    y = df_reg['Expected Monthly Spend']
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+    for name, model in model_dict.items():
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+        mse = mean_squared_error(y_test, y_pred)
+
+        st.markdown(f"### 🔎 {name}")
+        st.write(f"Mean Squared Error: {round(mse, 2)}")
+
+        fig, ax = plt.subplots()
+        ax.scatter(y_test, y_pred, alpha=0.5)
+        ax.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2)
+        ax.set_xlabel("Actual Spend")
+        ax.set_ylabel("Predicted Spend")
+        ax.set_title(f"{name} – Actual vs Predicted")
+        st.pyplot(fig)
