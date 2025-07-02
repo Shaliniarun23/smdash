@@ -163,20 +163,38 @@ with tab2:
     st.pyplot(fig)
 
     # ROC Curve
-    st.markdown("### ROC Curve")
-    fig, ax = plt.subplots()
-    for name, model in model_dict.items():
-        model.fit(X_train, y_train)
-        if hasattr(model, 'predict_proba'):
-            y_score = model.predict_proba(X_test)[:, 1]
-            fpr, tpr, _ = roc_curve(y_test, y_score)
-            ax.plot(fpr, tpr, label=f"{name}")
-    ax.plot([0, 1], [0, 1], 'k--')
-    ax.set_xlabel("False Positive Rate")
-    ax.set_ylabel("True Positive Rate")
-    ax.set_title("ROC Curve")
-    ax.legend()
-    st.pyplot(fig)
+   from sklearn.preprocessing import label_binarize
+from sklearn.multiclass import OneVsRestClassifier
+
+st.markdown("### 🧪 ROC Curve for Multiclass")
+
+# Binarize output
+classes = y.unique()
+y_bin = label_binarize(y_test, classes=sorted(classes))
+n_classes = y_bin.shape[1]
+
+fig, ax = plt.subplots()
+
+for name, model in model_dict.items():
+    clf = OneVsRestClassifier(model)
+    clf.fit(X_train, label_binarize(y_train, classes=sorted(classes)))
+    if hasattr(clf, 'predict_proba'):
+        y_score = clf.predict_proba(X_test)
+    else:
+        continue  # skip model if no probability method
+
+    for i in range(n_classes):
+        fpr, tpr, _ = roc_curve(y_bin[:, i], y_score[:, i])
+        roc_auc = auc(fpr, tpr)
+        ax.plot(fpr, tpr, label=f"{name} – Class {sorted(classes)[i]} (AUC = {roc_auc:.2f})")
+
+ax.plot([0, 1], [0, 1], 'k--')
+ax.set_xlabel("False Positive Rate")
+ax.set_ylabel("True Positive Rate")
+ax.set_title("Multiclass ROC Curve")
+ax.legend(loc="lower right")
+st.pyplot(fig)
+
 
     # Predict on uploaded new data
     st.markdown("### Predict New Uploaded Data")
