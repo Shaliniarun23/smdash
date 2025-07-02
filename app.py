@@ -133,7 +133,7 @@ with tab2:
     results = []
     probs = {}
     for name, model in model_dict.items():
-        model.fit(X_train, X_train.columns.to_frame())
+        model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
         y_prob = model.predict_proba(X_test)[:, 1] if hasattr(model, 'predict_proba') else [0]*len(y_test)
 
